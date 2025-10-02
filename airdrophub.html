@@ -1,1 +1,289 @@
-https://github.com/airdrophubgroup/Vasudevkrishana.git
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirdropHubGroup - Web3 Airdrop Hub with Live Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        header {
+            background-color: #1da1f2;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .api-note {
+            background: #e7f3ff;
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .airdrop-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .airdrop-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #1da1f2;
+        }
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .task-item button {
+            margin-left: 0.5rem;
+            padding: 0.2rem 0.5rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .task-item button:hover, .task-item button:disabled {
+            background-color: #0056b3;
+        }
+        .task-item button.completed {
+            background-color: #28a745;
+        }
+        .status {
+            font-weight: bold;
+            padding: 0.5rem;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .ready { background-color: #d4edda; color: #155724; }
+        .pending { background-color: #fff3cd; color: #856404; }
+        .join-btn, .connect-btn, .fetch-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        .join-btn:hover, .connect-btn:hover, .fetch-btn:hover {
+            background-color: #218838;
+        }
+        .loading { opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🚀 AirdropHubGroup</h1>
+        <p>Web3-powered crypto airdrop hub with live Galxe quests</p>
+        <button class="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+        <p id="wallet-address"></p>
+        <button class="fetch-btn" onclick="fetchAirdrops()">Fetch Live Airdrops</button>
+    </header>
+    <div class="container">
+        <div class="api-note">
+            <strong>API Note:</strong> Powered by Galxe Quest API. Get your free access token at <a href="https://galxe.com/developer" target="_blank">galxe.com/developer</a> and update <code>ACCESS_TOKEN</code> in JS.
+        </div>
+        <h2>Live Airdrops from Galxe (October 2025)</h2>
+        <div id="airdrops-list"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/4.3.0/web3.min.js"></script>
+    <script>
+        // Update with your Galxe access token
+        const ACCESS_TOKEN = 'YOUR_GALXE_ACCESS_TOKEN_HERE'; // Replace with real token
+        const GALXE_GRAPHQL_URL = 'https://graphigo-business.prd.galaxy.eco/query';
+        const contractAddress = "YOUR_CONTRACT_ADDRESS"; // From previous setup
+        const contractABI = [ /* Paste ABI from Remix */ ]; // From previous
+        let web3, contract, userAccount;
+        let airdrops = []; // Will hold fetched data
+
+        // Fallback sample data if API fails
+        const fallbackAirdrops = [
+            {
+                id: 1,
+                title: "Sample Airdrop - Blast",
+                description: "Earn points via quests.",
+                tasks: ["Join Telegram", "Follow on X"],
+                groupLink: "https://t.me/galxe"
+            }
+        ];
+
+        async function fetchAirdrops() {
+            if (ACCESS_TOKEN === 'YOUR_GALXE_ACCESS_TOKEN_HERE') {
+                alert('Please update ACCESS_TOKEN in the code with your Galxe token!');
+                renderAirdrops(fallbackAirdrops);
+                return;
+            }
+            document.body.classList.add('loading');
+            try {
+                const query = `
+                    {
+                        quests(input: {statuses: ["Active"], types: ["Airdrop"], first: 5}) {
+                            edges {
+                                node {
+                                    id
+                                    name
+                                    description
+                                    status
+                                    startTime
+                                    endTime
+                                    participantsCount
+                                    credentialGroups {
+                                        conditions {
+                                            type
+                                            eligible
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                `;
+                const response = await fetch(GALXE_GRAPHQL_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'access-token': ACCESS_TOKEN
+                    },
+                    body: JSON.stringify({ query })
+                });
+                const data = await response.json();
+                if (data.errors) throw new Error(data.errors[0].message);
+                airdrops = data.data.quests.edges.map(edge => ({
+                    id: edge.node.id,
+                    title: edge.node.name,
+                    description: edge.node.description || 'Complete quests to earn rewards!',
+                    tasks: edge.node.credentialGroups?.flatMap(group => 
+                        group.conditions.map(cond => cond.type || 'Complete Task')
+                    ) || ['Join Community', 'Verify Wallet'],
+                    groupLink: 'https://galxe.com' // Default; customize per quest if needed
+                }));
+                renderAirdrops(airdrops);
+            } catch (error) {
+                console.error('API Error:', error);
+                alert('Failed to fetch: ' + error.message + '. Using fallback data.');
+                renderAirdrops(fallbackAirdrops);
+            } finally {
+                document.body.classList.remove('loading');
+            }
+        }
+
+        async function connectWallet() {
+            if (window.ethereum) {
+                web3 = new Web3(window.ethereum);
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    userAccount = accounts[0];
+                    document.getElementById('wallet-address').textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+                    contract = new web3.eth.Contract(contractABI, contractAddress);
+                    if (airdrops.length === 0) await fetchAirdrops();
+                } catch (error) {
+                    alert('Failed to connect wallet: ' + error.message);
+                }
+            } else {
+                alert('Please install MetaMask!');
+            }
+        }
+
+        async function completeTask(airdropId, taskId) {
+            if (!userAccount) {
+                alert('Please connect your wallet first!');
+                return;
+            }
+            try {
+                await contract.methods.completeTask(airdropId, taskId).send({ from: userAccount });
+                alert('Task marked complete on-chain!');
+                const taskBtn = document.getElementById(`task-${airdropId}-${taskId}`);
+                taskBtn.disabled = true;
+                taskBtn.textContent = 'Completed';
+                taskBtn.classList.add('completed');
+                updateStatus(airdropId);
+            } catch (error) {
+                alert('Error completing task: ' + error.message);
+            }
+        }
+
+        async function updateStatus(airdropId) {
+            if (!contract || !userAccount) return;
+            const airdrop = airdrops.find(a => a.id === airdropId);
+            if (!airdrop) return;
+            let completed = 0;
+            for (let i = 0; i < airdrop.tasks.length; i++) {
+                const isComplete = await contract.methods.isTaskCompleted(userAccount, airdropId, i).call();
+                if (isComplete) completed++;
+            }
+            const statusEl = document.getElementById(`status-${airdropId}`);
+            const total = airdrop.tasks.length;
+            statusEl.textContent = completed === total ? 'Status: Claim Ready! 🎉' : `Status: ${completed}/${total} Tasks Complete`;
+            statusEl.className = `status ${completed === total ? 'ready' : 'pending'}`;
+        }
+
+        function renderAirdrops(data) {
+            airdrops = data;
+            const list = document.getElementById('airdrops-list');
+            list.innerHTML = '';
+            data.forEach(airdrop => {
+                const card = document.createElement('div');
+                card.className = 'airdrop-card';
+                card.innerHTML = `
+                    <div class="airdrop-title">${airdrop.title}</div>
+                    <p>${airdrop.description}</p>
+                    <ul class="task-list">
+                        ${airdrop.tasks.map((task, i) => `
+                            <li class="task-item">
+                                ${task} <button id="task-${airdrop.id}-${i}" onclick="completeTask('${airdrop.id}', ${i})">Complete</button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                    <div id="status-${airdrop.id}" class="status pending">Status: 0/${airdrop.tasks.length} Tasks Complete</div>
+                    <button class="join-btn" onclick="joinGroup('${airdrop.groupLink}')">Join Galxe & Start Quest</button>
+                `;
+                list.appendChild(card);
+                // Check existing on-chain status
+                airdrop.tasks.forEach((_, i) => checkTaskStatus(airdrop.id, i));
+            });
+        }
+
+        async function checkTaskStatus(airdropId, taskId) {
+            if (contract && userAccount) {
+                const isComplete = await contract.methods.isTaskCompleted(userAccount, airdropId, taskId).call();
+                if (isComplete) {
+                    const taskBtn = document.getElementById(`task-${airdropId}-${taskId}`);
+                    if (taskBtn) {
+                        taskBtn.disabled = true;
+                        taskBtn.textContent = 'Completed';
+                        taskBtn.classList.add('completed');
+                    }
+                    updateStatus(airdropId);
+                }
+            }
+        }
+
+        function joinGroup(link) {
+            window.open(link, '_blank');
+        }
+
+        // Initial load
+        fetchAirdrops();
+    </script>
+</body>
+</html>
